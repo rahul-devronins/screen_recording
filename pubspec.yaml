@@ -43,7 +43,7 @@ dependencies:
   helpers: ^1.1.4
   flutter_painter: ^1.0.1
   phosphor_flutter: ^1.4.0
-
+  permission_handler: ^10.0.0
 
 dev_dependencies:
   flutter_test:

@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_painter/flutter_painter.dart';
 import 'package:helpers/helpers/transition.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:screenrecorder/custom_progress_indicator.dart';
 import 'package:screenrecorder/screens/crop_screen.dart';
@@ -87,6 +88,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   @override
   void initState() {
+    requestMicrophonePermission();
+
     screenRecorder = EdScreenRecorder();
     _animationController = AnimationController(vsync: this, duration: Duration(milliseconds: 450));
     controller = PainterController(
@@ -185,13 +188,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   Future<void> stopRecord() async {
     try {
-      var stopResponse = await screenRecorder?.stopRecord();
+      var stopResponse = await screenRecorder!.stopRecord();
       setState(() {
         _response = stopResponse;
         file = _response!['file'];
         print("FILE:$file");
       });
-      if (!mounted) return;
+
       if (file != null) {
         _controller = VideoEditorController.file(file!, maxDuration: const Duration(seconds: 60))..initialize().then((_) => setState(() {}));
         await Navigator.push(context, MaterialPageRoute(builder: (context) => CropScreen(controller: _controller))).then((value) {
@@ -211,6 +214,34 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   AnimationController? _animationController;
   bool isPlaying = false;
+  Future<void> requestMicrophonePermission() async {
+    var serviceStatus = await Permission.microphone.isGranted;
+    bool isMicrophone = serviceStatus == ServiceStatus.enabled;
+    final status = await Permission.microphone.request();
+    if (status == PermissionStatus.granted) {
+      print('Permission Granted');
+    } else if (status == PermissionStatus.denied) {
+      print('Permission denied');
+    } else if (status == PermissionStatus.permanentlyDenied) {
+      print('Permission Permanently Denied');
+      await openAppSettings();
+    }
+  }
+
+  Future<void> requestStoragePermission() async {
+    var serviceStatus = await Permission.storage.isGranted;
+    bool isStorage = serviceStatus == ServiceStatus.enabled;
+    final status = await Permission.storage.request();
+    if (status == PermissionStatus.granted) {
+      print('Permission Granted');
+    } else if (status == PermissionStatus.denied) {
+      print('Permission denied');
+    } else if (status == PermissionStatus.permanentlyDenied) {
+      print('Permission Permanently Denied');
+      await openAppSettings();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -248,15 +279,17 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       onPressed: controller.canUndo ? undo : null,
                     ),
                     IconButton(
-                        onPressed: () {
+                        onPressed: () async {
+                          await requestStoragePermission();
+
                           setState(() {
                             isPlaying = !isPlaying;
                             isPlaying ? _animationController!.forward() : _animationController!.reverse();
                           });
                           if (isPlaying) {
-                            startRecord(fileName: "eren");
+                            await startRecord(fileName: "eren");
                           } else {
-                            stopRecord();
+                            await stopRecord();
                           }
                         },
                         icon: AnimatedIcon(icon: AnimatedIcons.play_pause, color: Colors.red, progress: _animationController!)),
@@ -277,7 +310,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 ? Expanded(
                     child: VideoItems(
                       videoPlayerController: VideoPlayerController.file(result!),
-                      autoplay: false,
+                      autoplay: true,
                       looping: false,
                     ),
                   )
